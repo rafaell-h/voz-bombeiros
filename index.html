@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <title>Teste de Voz - Bombeiros</title>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f5f5f5;
+      margin: 0;
+      padding: 30px 15px;
+      text-align: center;
+    }
+
+    .card {
+      max-width: 500px;
+      margin: auto;
+      background: white;
+      padding: 30px 20px;
+      border-radius: 15px;
+      box-shadow: 0 3px 12px rgba(0,0,0,0.15);
+    }
+
+    h1 {
+      color: #b71c1c;
+      font-size: 24px;
+    }
+
+    p {
+      color: #555;
+      line-height: 1.5;
+    }
+
+    .pergunta {
+      margin: 25px 0;
+      padding: 20px;
+      background: #f1f1f1;
+      border-radius: 10px;
+      font-size: 20px;
+      font-weight: bold;
+    }
+
+    button {
+      width: 100%;
+      padding: 15px;
+      margin-top: 10px;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+
+    .gravar {
+      background: #b71c1c;
+      color: white;
+    }
+
+    .repetir {
+      background: #555;
+      color: white;
+    }
+
+    .resultado {
+      margin-top: 25px;
+      padding: 15px;
+      background: #f5f5f5;
+      border-radius: 8px;
+      min-height: 40px;
+      font-size: 18px;
+    }
+
+    .status {
+      margin-top: 15px;
+      color: #777;
+      font-size: 14px;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div class="card">
+
+    <h1>TESTE DE VOZ</h1>
+
+    <p>
+      Sistema de Registro de Ocorrências<br>
+      Corpo de Bombeiros Militar do Piauí
+    </p>
+
+    <div class="pergunta">
+      Qual é a natureza da ocorrência?
+    </div>
+
+    <button
+      class="gravar"
+      onclick="iniciarReconhecimento()">
+      🎙️ RESPONDER POR VOZ
+    </button>
+
+    <button
+      class="repetir"
+      onclick="falarPergunta()">
+      🔊 REPETIR PERGUNTA
+    </button>
+
+    <div
+      id="resultado"
+      class="resultado">
+      A resposta aparecerá aqui.
+    </div>
+
+    <div
+      id="status"
+      class="status">
+      Aguardando resposta...
+    </div>
+
+  </div>
+
+
+  <script>
+
+    let reconhecimento = null;
+
+
+    // ==========================================
+    // FAZER A PERGUNTA EM VOZ ALTA
+    // ==========================================
+
+    function falarPergunta() {
+
+      if (!("speechSynthesis" in window)) {
+
+        document.getElementById("status").textContent =
+          "Seu navegador não possui suporte à síntese de voz.";
+
+        return;
+      }
+
+      window.speechSynthesis.cancel();
+
+      const fala =
+        new SpeechSynthesisUtterance(
+          "Qual é a natureza da ocorrência?"
+        );
+
+      fala.lang = "pt-BR";
+      fala.rate = 0.95;
+      fala.pitch = 1;
+
+      window.speechSynthesis.speak(fala);
+    }
+
+
+    // ==========================================
+    // RECONHECIMENTO DE VOZ
+    // ==========================================
+
+    function iniciarReconhecimento() {
+
+      const SpeechRecognition =
+        window.SpeechRecognition ||
+        window.webkitSpeechRecognition;
+
+
+      if (!SpeechRecognition) {
+
+        document.getElementById("status").textContent =
+          "Seu navegador não possui suporte ao reconhecimento de voz. Use o Google Chrome.";
+
+        return;
+      }
+
+
+      if (window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+      }
+
+
+      reconhecimento =
+        new SpeechRecognition();
+
+
+      reconhecimento.lang = "pt-BR";
+
+      reconhecimento.continuous = false;
+
+      reconhecimento.interimResults = true;
+
+      reconhecimento.maxAlternatives = 1;
+
+
+      document.getElementById("status").textContent =
+        "🎙️ Estou ouvindo...";
+
+
+      reconhecimento.onresult =
+        function(event) {
+
+          let textoFinal = "";
+
+          let textoIntermediario = "";
+
+
+          for (
+            let i = event.resultIndex;
+            i < event.results.length;
+            i++
+          ) {
+
+            const resultado =
+              event.results[i];
+
+
+            if (resultado.isFinal) {
+
+              textoFinal +=
+                resultado[0].transcript;
+
+            } else {
+
+              textoIntermediario +=
+                resultado[0].transcript;
+
+            }
+
+          }
+
+
+          const texto =
+            (
+              textoFinal ||
+              textoIntermediario
+            ).trim();
+
+
+          if (texto) {
+
+            document.getElementById(
+              "resultado"
+            ).textContent = texto;
+
+          }
+
+
+          if (textoFinal.trim()) {
+
+            document.getElementById(
+              "status"
+            ).textContent =
+              "Resposta reconhecida.";
+
+          }
+
+        };
+
+
+      reconhecimento.onerror =
+        function(event) {
+
+          let mensagem =
+            "Não foi possível reconhecer a resposta.";
+
+
+          if (event.error === "not-allowed") {
+
+            mensagem =
+              "Permissão do microfone não autorizada.";
+
+          }
+
+          else if (event.error === "no-speech") {
+
+            mensagem =
+              "Nenhuma fala foi detectada. Tente novamente.";
+
+          }
+
+          else if (event.error === "audio-capture") {
+
+            mensagem =
+              "Não foi possível acessar o microfone.";
+
+          }
+
+
+          document.getElementById(
+            "status"
+          ).textContent = mensagem;
+
+        };
+
+
+      reconhecimento.onend =
+        function() {
+
+          if (
+            document.getElementById(
+              "status"
+            ).textContent ===
+            "🎙️ Estou ouvindo..."
+          ) {
+
+            document.getElementById(
+              "status"
+            ).textContent =
+              "Gravação encerrada.";
+
+          }
+
+        };
+
+
+      try {
+
+        reconhecimento.start();
+
+      }
+
+      catch (erro) {
+
+        document.getElementById(
+          "status"
+        ).textContent =
+          "Não foi possível iniciar o reconhecimento.";
+
+      }
+
+    }
+
+  </script>
+
+</body>
+</html>
