@@ -80,15 +80,14 @@
 
 <div class="card">
   <h1>REGISTRO DE OCORRÊNCIA</h1>
-  <div style="text-align:center;font-size:11px;color:#888;margin-top:-2px;">Módulo de voz v3</div>
-
   <div id="pergunta" class="pergunta"></div>
 
   <div id="status" class="status">
-    Preparando o módulo de voz...
+    Preparando a pergunta...
   </div>
 
-  <textarea id="texto" placeholder="A resposta reconhecida aparecerá aqui. Você também pode editar antes de confirmar."></textarea>
+  <textarea id="texto"
+    placeholder="A resposta reconhecida aparecerá aqui. Você também pode editar antes de confirmar."></textarea>
 
   <button id="btnGravar" class="gravar" onclick="gravar()">
     🎙️ RESPONDER POR VOZ
@@ -109,37 +108,63 @@
 
 <script>
   const params = new URLSearchParams(window.location.search);
-  const campo = params.get("campo") || "natureza";
+  const campo = params.get("campo") || "situacao";
 
-  let tipoResultado = "resultadoVozNatureza";
-  let perguntaTexto = "Qual é a natureza da ocorrência?";
+  const perguntas = {
+    situacao: {
+      pergunta: "Descreva a situação encontrada pela guarnição."
+    },
+    vitimas: {
+      pergunta: "Informe as vítimas da ocorrência."
+    },
+    procedimentos: {
+      pergunta: "Descreva os procedimentos realizados pela guarnição."
+    },
+    equipamentos: {
+      pergunta: "Informe os equipamentos utilizados na ocorrência."
+    },
+    apoio: {
+      pergunta: "Informe o apoio recebido durante a ocorrência. Se não houve, diga: Não houve."
+    },
+    encaminhamento: {
+      pergunta: "Informe o encaminhamento realizado."
+    },
+    situacaoFinal: {
+      pergunta: "Descreva a situação final da ocorrência."
+    },
+    observacoes: {
+      pergunta: "Informe as observações da ocorrência. Se não houver, diga: Não há observações."
+    }
+  };
 
-  if (campo === "situacao") {
-    tipoResultado = "resultadoVozSituacao";
-    perguntaTexto = "Descreva a situação encontrada pela guarnição.";
-  }
+  const configuracao =
+    perguntas[campo] || perguntas.situacao;
 
   const pergunta = document.getElementById("pergunta");
   const status = document.getElementById("status");
   const texto = document.getElementById("texto");
   const btnGravar = document.getElementById("btnGravar");
 
-  pergunta.textContent = perguntaTexto;
+  pergunta.textContent = configuracao.pergunta;
 
   let reconhecimento = null;
   let reconhecimentoAtivo = false;
 
-  function falarPergunta() {
+  function falarPergunta(callback) {
     if (!("speechSynthesis" in window)) {
-      status.textContent = "Seu navegador não oferece reprodução de voz.";
+      status.textContent =
+        "Seu navegador não oferece reprodução de voz.";
+      if (callback) callback();
       return;
     }
 
     window.speechSynthesis.cancel();
 
-    status.textContent = "Iniciando a pergunta por voz...";
+    const fala =
+      new SpeechSynthesisUtterance(
+        configuracao.pergunta
+      );
 
-    const fala = new SpeechSynthesisUtterance(perguntaTexto);
     fala.lang = "pt-BR";
     fala.rate = 0.95;
     fala.pitch = 1;
@@ -149,13 +174,21 @@
     };
 
     fala.onend = function() {
-      status.textContent = "Toque em RESPONDER POR VOZ e fale sua resposta.";
+      status.textContent =
+        "Pode falar agora...";
+      if (callback) callback();
+    };
+
+    fala.onerror = function() {
+      status.textContent =
+        "Não foi possível reproduzir a pergunta. Você pode responder mesmo assim.";
+      if (callback) callback();
     };
 
     window.speechSynthesis.speak(fala);
   }
 
-  function gravar() {
+  function iniciarReconhecimento() {
     const SpeechRecognition =
       window.SpeechRecognition ||
       window.webkitSpeechRecognition;
@@ -170,11 +203,9 @@
       return;
     }
 
-    if (window.speechSynthesis) {
-      window.speechSynthesis.cancel();
-    }
+    reconhecimento =
+      new SpeechRecognition();
 
-    reconhecimento = new SpeechRecognition();
     reconhecimento.lang = "pt-BR";
     reconhecimento.continuous = false;
     reconhecimento.interimResults = true;
@@ -237,39 +268,37 @@
     reconhecimento.onend = function() {
       reconhecimentoAtivo = false;
       btnGravar.disabled = false;
-      btnGravar.textContent = "🎙️ RESPONDER POR VOZ";
+      btnGravar.textContent =
+        "🎙️ RESPONDER POR VOZ";
     };
 
     try {
-      // Como este botão é acionado pelo usuário, a pergunta pode ser falada
-      // mesmo quando o Chrome bloqueia reprodução automática ao abrir a janela.
-      if (window.speechSynthesis) {
-        window.speechSynthesis.cancel();
-        const fala = new SpeechSynthesisUtterance(perguntaTexto);
-        fala.lang = "pt-BR";
-        fala.rate = 0.95;
-        fala.pitch = 1;
-        fala.onstart = function() {
-          status.textContent = "Pergunta sendo falada...";
-        };
-        fala.onend = function() {
-          status.textContent = "Agora fale sua resposta...";
-        };
-        window.speechSynthesis.speak(fala);
-      }
-
       reconhecimento.start();
     } catch (erro) {
       reconhecimentoAtivo = false;
       btnGravar.disabled = false;
-      btnGravar.textContent = "🎙️ RESPONDER POR VOZ";
+      btnGravar.textContent =
+        "🎙️ RESPONDER POR VOZ";
       status.textContent =
         "Não foi possível iniciar o reconhecimento. Tente novamente.";
     }
   }
 
+  function gravar() {
+    if (window.speechSynthesis) {
+      window.speechSynthesis.cancel();
+    }
+
+    /* A fala começa após o clique do usuário.
+       Isso evita depender do autoplay do Chrome. */
+    falarPergunta(function() {
+      iniciarReconhecimento();
+    });
+  }
+
   function confirmar() {
-    const resposta = texto.value.trim();
+    const resposta =
+      texto.value.trim();
 
     if (!resposta) {
       status.textContent =
@@ -278,7 +307,10 @@
       return;
     }
 
-    if (!window.opener || window.opener.closed) {
+    if (
+      !window.opener ||
+      window.opener.closed
+    ) {
       status.textContent =
         "A janela principal do sistema não está disponível.";
       return;
@@ -286,7 +318,8 @@
 
     window.opener.postMessage(
       {
-        tipo: tipoResultado,
+        tipo: "resultadoVozBloco4",
+        campo: campo,
         texto: resposta
       },
       "*"
@@ -297,60 +330,8 @@
 
     setTimeout(function() {
       window.close();
-    }, 500);
+    }, 400);
   }
-
-  let perguntaAutomaticaIniciada = false;
-
-  function iniciarPerguntaAutomatica() {
-    if (perguntaAutomaticaIniciada) {
-      return;
-    }
-
-    perguntaAutomaticaIniciada = true;
-    status.textContent = "Módulo de voz v3 carregado. Preparando pergunta...";
-
-    function executarFala() {
-      try {
-        if (window.speechSynthesis) {
-          window.speechSynthesis.cancel();
-          window.speechSynthesis.resume();
-        }
-
-        falarPergunta();
-      } catch (erro) {
-        status.textContent =
-          "Não foi possível iniciar a pergunta por voz automaticamente. Clique em REPETIR PERGUNTA.";
-      }
-    }
-
-    if (
-      "speechSynthesis" in window &&
-      typeof window.speechSynthesis.getVoices === "function"
-    ) {
-      const vozes = window.speechSynthesis.getVoices();
-
-      if (vozes && vozes.length > 0) {
-        setTimeout(executarFala, 300);
-      } else {
-        window.speechSynthesis.addEventListener(
-          "voiceschanged",
-          function() {
-            setTimeout(executarFala, 200);
-          },
-          { once: true }
-        );
-
-        setTimeout(executarFala, 1200);
-      }
-    } else {
-      setTimeout(executarFala, 500);
-    }
-  }
-
-  window.addEventListener("load", function() {
-    iniciarPerguntaAutomatica();
-  });
 </script>
 
 </body>
