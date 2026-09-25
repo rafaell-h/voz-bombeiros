@@ -80,6 +80,7 @@
 
 <div class="card">
   <h1>REGISTRO DE OCORRÊNCIA</h1>
+  <div style="text-align:center;font-size:11px;color:#888;margin-top:-2px;">Módulo de voz v3</div>
 
   <div id="pergunta" class="pergunta"></div>
 
@@ -240,6 +241,23 @@
     };
 
     try {
+      // Como este botão é acionado pelo usuário, a pergunta pode ser falada
+      // mesmo quando o Chrome bloqueia reprodução automática ao abrir a janela.
+      if (window.speechSynthesis) {
+        window.speechSynthesis.cancel();
+        const fala = new SpeechSynthesisUtterance(perguntaTexto);
+        fala.lang = "pt-BR";
+        fala.rate = 0.95;
+        fala.pitch = 1;
+        fala.onstart = function() {
+          status.textContent = "Pergunta sendo falada...";
+        };
+        fala.onend = function() {
+          status.textContent = "Agora fale sua resposta...";
+        };
+        window.speechSynthesis.speak(fala);
+      }
+
       reconhecimento.start();
     } catch (erro) {
       reconhecimentoAtivo = false;
@@ -290,7 +308,7 @@
     }
 
     perguntaAutomaticaIniciada = true;
-    status.textContent = "Preparando a pergunta por voz...";
+    status.textContent = "Módulo de voz v3 carregado. Preparando pergunta...";
 
     function executarFala() {
       try {
