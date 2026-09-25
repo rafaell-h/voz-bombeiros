@@ -136,6 +136,8 @@
 
     window.speechSynthesis.cancel();
 
+    status.textContent = "Iniciando a pergunta por voz...";
+
     const fala = new SpeechSynthesisUtterance(perguntaTexto);
     fala.lang = "pt-BR";
     fala.rate = 0.95;
@@ -280,11 +282,57 @@
     }, 500);
   }
 
-  window.onload = function() {
-    setTimeout(function() {
-      falarPergunta();
-    }, 400);
-  };
+  let perguntaAutomaticaIniciada = false;
+
+  function iniciarPerguntaAutomatica() {
+    if (perguntaAutomaticaIniciada) {
+      return;
+    }
+
+    perguntaAutomaticaIniciada = true;
+    status.textContent = "Preparando a pergunta por voz...";
+
+    function executarFala() {
+      try {
+        if (window.speechSynthesis) {
+          window.speechSynthesis.cancel();
+          window.speechSynthesis.resume();
+        }
+
+        falarPergunta();
+      } catch (erro) {
+        status.textContent =
+          "Não foi possível iniciar a pergunta por voz automaticamente. Clique em REPETIR PERGUNTA.";
+      }
+    }
+
+    if (
+      "speechSynthesis" in window &&
+      typeof window.speechSynthesis.getVoices === "function"
+    ) {
+      const vozes = window.speechSynthesis.getVoices();
+
+      if (vozes && vozes.length > 0) {
+        setTimeout(executarFala, 300);
+      } else {
+        window.speechSynthesis.addEventListener(
+          "voiceschanged",
+          function() {
+            setTimeout(executarFala, 200);
+          },
+          { once: true }
+        );
+
+        setTimeout(executarFala, 1200);
+      }
+    } else {
+      setTimeout(executarFala, 500);
+    }
+  }
+
+  window.addEventListener("load", function() {
+    iniciarPerguntaAutomatica();
+  });
 </script>
 
 </body>
